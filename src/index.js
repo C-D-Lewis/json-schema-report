@@ -4,7 +4,7 @@ const { validate } = require('jsonschema');
 
 const [schemaPath, instancePath] = process.argv.slice(2);
 
-let errors = [];
+let errorList = [];
 
 /**
  * Read a JSON file.
@@ -85,14 +85,31 @@ const replaceRefs = (propertySchema, schema) => {
  * @param {object} instance - Instance fragment.
  */
 const validatePropertySchema = (path, level, schema, subSchema, instance) => {
-  const { required, properties } = subSchema;
+  const { required, properties, anyOf, allOf, oneOf } = subSchema;
 
-  // allOf/anyOf/oneOf
-  // ['anyOf', 'allOf', 'oneOf']
-  //   .filter(p => propertySchema[p])
-  //   .forEach((listType) => {
-
-  //   });
+  if (path === '' && anyOf) {
+    // Ensure at least one subSchema is validated
+    anyOf.forEach((sub, i, arr) => {
+      console.log(`[anyOf ${i + 1}/${arr.length}]`);
+      validatePropertySchema(path, level + 1, schema, sub, instance);
+    });
+    return;
+  }
+  if (path === '' && allOf) {
+    // Ensure all subSchemas are validated
+    allOf.forEach((sub, i, arr) => {
+      console.log(`[allOf ${i + 1}/${arr.length}]`);
+      validatePropertySchema(path, level, schema, sub, instance);
+    });
+    return;
+  }
+  if (path === '' && oneOf) {
+    // Ensure only one subSchema is validated
+    oneOf.forEach((sub, i, arr) => {
+      console.log(`[oneOf ${i + 1}/${arr.length}]`);
+      validatePropertySchema(path, level, schema, sub, instance);
+    });
+  }
 
   // Basic field
   if (!properties) {
@@ -100,7 +117,7 @@ const validatePropertySchema = (path, level, schema, subSchema, instance) => {
     let output = `${pad(level + 1)}${errorMessage ? '✕': '✓'} ${path}`;
     if (errorMessage) {
       output += `\n${pad(level + 2)}${errorMessage ? `- ${errorMessage}` : ''}`;
-      errors.push(output);
+      errorList.push(output);
     }
 
     console.log(output);
@@ -115,7 +132,7 @@ const validatePropertySchema = (path, level, schema, subSchema, instance) => {
       // Property is absent, but was required
       if (required.includes(name) && !instance[name]) {
         const output = `${pad(level + 1)}? ${subKeyPath}\n${pad(level + 2)}- required property is missing`;
-        errors.push(output);
+        errorList.push(output);
         console.log(output);
         return;
       }
@@ -150,9 +167,9 @@ const validateSchema = (schema, instance) => {
   // Handle top-level allOf/anyOf/oneOf
   schema = replaceRefs(schema, schema);
 
-  errors = [];
+  errorList = [];
   validatePropertySchema('', 0, schema, schema, instance);
-  return errors;
+  return errorList;
 };
 
 /**
@@ -167,7 +184,7 @@ const main = () => {
 
   console.log();
   validateSchema(schema, instance);
-  console.log(`\n${errors.length} errors found.\n`);
+  console.log(`\n${errorList.length} errors found.\n`);
 };
 
 module.exports = {

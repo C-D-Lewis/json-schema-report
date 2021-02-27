@@ -116,6 +116,24 @@ describe('unit tests', () => {
     expect(errors).to.deep.equal([]);
   });
 
+  it('should reject invalid data for sub-schema anyOf', () => {
+    const data = {
+      name: 'King of the Seas',
+      age: 12,
+      details: {
+        length: 23,
+        topSpeed: 12,
+      },
+    };
+
+    const errors = validateSchema(anyOfSchema, data);
+
+    // TODO: Further resolve for better detail
+    expect(errors).to.deep.equal([
+      "  ✕ .details\n    - instance is not any of [subschema 0],[subschema 1]"
+    ]);
+  });
+
   it('should handle top-level allOf', () => {
     const data = {
       name: 'King of the Seas',
@@ -129,7 +147,23 @@ describe('unit tests', () => {
     expect(errors).to.deep.equal([]);
   });
 
-  it('should handle oneOf');
+  it('should reject invalid data for top-level allOf', () => {
+    const data = {
+      name: 'King of the Seas',
+      age: 12,
+      length: 23,
+      topSpeed: 12,
+    };
+
+    const errors = validateSchema(allOfSchema, data);
+    expect(errors).to.deep.equal([
+      "  ? .color\n    - required property is missing"
+    ]);
+  });
+
+  it('should handle top-level oneOf', () => {
+    // TODO: oneOf pets test schema
+  });
 
   it('should handle a missing definition');
 

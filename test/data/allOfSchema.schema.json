@@ -10,15 +10,18 @@
   ],
   "definitions": {
     "Basic": {
-      "name": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 32
-      },
-      "age": {
-        "type": "number",
-        "minimum": 0,
-        "maximum": 120
+      "required": ["name", "age"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "age": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 120
+        }
       }
     },
     "Boat": {
