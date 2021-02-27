@@ -1,0 +1,11 @@
+{
+  "name": "Chris",
+  "age": 23,
+  "address": {
+    "line1": "10 The Street",
+    "line2": "Exampleville",
+    "city": "Lego City",
+    "state": "CA",
+    "country": "USA"
+  }
+}

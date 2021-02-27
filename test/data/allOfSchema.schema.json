@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "allOf": [
+    {
+      "$ref": "#/definitions/Basic"
+    },
+    {
+      "$ref": "#/definitions/Boat"
+    }
+  ],
+  "definitions": {
+    "Basic": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 32
+      },
+      "age": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 120
+      }
+    },
+    "Boat": {
+      "type": "object",
+      "required": ["color", "length", "topSpeed"],
+      "properties": {
+        "color": {
+          "type": "string"
+        },
+        "length": {
+          "type": "number"
+        },
+        "numMasts": {
+          "type": "number"
+        },
+        "topSpeed": {
+          "type": "number"
+        }
+      }
+    }
+  }
+}

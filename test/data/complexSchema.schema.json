@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "name",
+    "address"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "age": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 120
+    },
+    "address": {
+      "$ref": "#/definitions/Address"
+    }
+  },
+  "definitions": {
+    "Address": {
+      "type": "object",
+      "required": [
+        "line1",
+        "line2",
+        "city",
+        "state",
+        "country"
+      ],
+      "properties": {
+        "line1": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "line2": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "city": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "state": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "country": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    }
+  }
+}
