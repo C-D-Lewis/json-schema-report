@@ -1,4 +1,12 @@
-const { readJsonFile, pad, resolveRef, replaceRefs, validateFragment, multiSchemaTypes } = require('./util');
+const {
+  readJsonFile,
+  pad,
+  resolveRef,
+  replaceRefs,
+  validateFragment,
+  multiSchemaTypes,
+  inferType,
+} = require('./util');
 
 const { DEBUG } = process.env;
 const [schemaPath, instancePath] = process.argv.slice(2);
@@ -39,6 +47,11 @@ const validatePropertySchema = (path, level, schema, subSchema, instance) => {
     return;
   }
 
+  // No type in this schema fragment, attempt to infer
+  if (!subSchema.type) {
+    subSchema.type = inferType(level, subSchema);
+  }
+
   const { required = [], properties, type, items } = subSchema;
   if (DEBUG) console.log(JSON.stringify({ subSchema, instance }, null, 2));
 
@@ -52,7 +65,7 @@ const validatePropertySchema = (path, level, schema, subSchema, instance) => {
 
   // Array of items with anyOf/allOf/oneOf
   // TODO: Collate errors inside and add a flag to show them
-  if (items && multiSchemaTypes.some(type => items[type])) {
+  if (Array.isArray(instance) && items && multiSchemaTypes.some(type => items[type])) {
     multiSchemaTypes
       .filter(p => items[p])
       .forEach((listType) => {
@@ -125,7 +138,7 @@ const validatePropertySchema = (path, level, schema, subSchema, instance) => {
     return;
   }
 
-  throw new Error(`Not sure what to do: ${JSON.stringify(subSchema, null, 2)}`);
+  throw new Error(`Unhandled schema:\n${JSON.stringify({ subSchema, instance }, null, 2)}`);
 };
 
 /**

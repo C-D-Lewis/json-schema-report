@@ -80,6 +80,22 @@ const replaceRefs = (propertySchema, schema) => {
   return updated;
 };
 
+/**
+ * Attempt to infer a schema type from other present fields.
+ * 
+ * @param {object} schema - Schema to examine.
+ * @returns {string} Attempted inferred type.
+ */
+const inferType = (level, schema) => {
+  if (schema.minItems || schema.maxItems) {
+    console.log(`${pad(level)}! Inferred type 'array'`);
+    return 'array';
+  }
+
+  console.log(`${pad(level)}! Inferred type 'object'`);
+  return 'object';
+};
+
 module.exports = {
   multiSchemaTypes,
   readJsonFile,
@@ -87,4 +103,5 @@ module.exports = {
   validateFragment,
   resolveRef,
   replaceRefs,
+  inferType,
 };
