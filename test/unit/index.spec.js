@@ -197,7 +197,7 @@ describe('unit tests', () => {
 
     const errors = validateSchema(arrayWithRefsSchema, data);
     expect(errors).to.deep.equal([
-      '  ✕ .clothes - instance[0] requires property \"size\"',
+      '  ✕ .clothes[0].size - required property is missing',
     ]);
   });
 

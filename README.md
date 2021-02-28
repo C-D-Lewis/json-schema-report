@@ -9,14 +9,13 @@ For example:
 ```
 
   ✓ .name
-  ✕ .age
-    - instance must be greater than or equal to 0
+  ✕ .age - instance must be greater than or equal to 0
   ✓ .address.line1
   ✓ .address.line2
   ✓ .address.city
-  ? .address.state
-    - required property is missing
+  ✕ .address.state - required property is missing
   ✓ .address.country
+  ? .catchphrase
 
 2 errors found.
 ```
