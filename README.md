@@ -21,8 +21,6 @@ For example:
 2 errors found.
 ```
 
-TODO: Support top-level `allOf`/`anyOf`/`oneOf`.
-
 ## Install
 
 Install as a command line tool:
