@@ -1,4 +1,4 @@
-# json-schema-debug
+# json-schema-report
 
 Visual tool to debug JSON schema validation errors field-by-field. I couldn't
 find any tool that did in-depth reporting on why a schema failed, so I made this
@@ -26,13 +26,13 @@ For example, showing valid (✓), invalid or missing (✕), and optional missing
 Install as a command line tool:
 
 ```
-npm i -g json-schema-debug
+npm i -g json-schema-report
 ```
 
 Then use the command:
 
 ```
-jsd $schemaFilePath $dataFilePath
+jsr $schemaFilePath $dataFilePath
 ```
 
 ## Run tests
