@@ -12,6 +12,7 @@ const { DEBUG } = process.env;
 const [schemaPath, instancePath] = process.argv.slice(2);
 
 let errorList = [];
+let multiSchemaErrors = [];
 
 /**
  * Validate an array of schemas, such as allOf/anyOf/oneOf

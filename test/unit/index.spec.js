@@ -6,6 +6,7 @@ const simpleSchema = require('../data/simple.schema.json');
 const complexSchema = require('../data/complex.schema.json');
 const anyOfSchema = require('../data/anyOf.schema.json');
 const allOfSchema = require('../data/allOf.schema.json');
+const oneOfSchema = require('../data/oneOf.schema.json');
 const arrayWithRefsSchema = require('../data/arrayWithRefs.schema.json');
 const arrayWithoutRefsSchema = require('../data/arrayWithoutRefs.schema.json');
 
@@ -169,7 +170,19 @@ describe('unit tests', () => {
     ]);
   });
 
-  it('should handle top-level oneOf'); // TODO: oneOf pets test schema
+  it('should handle top-level oneOf', () => {
+    const data = {
+      color: 'red',
+      length: 23,
+      topSpeed: 12,
+    };
+
+    const errors = validateSchema(oneOfSchema, data);
+    expect(errors).to.deep.equal([
+      // Missing from [oneOf 2/2]
+      '    ✕ .numSails - required property is missing'
+    ]);
+  });
 
   it('should handle an array of items with $ref', () => {
     const data = {

@@ -4,7 +4,8 @@ Visual tool to debug JSON schema validation errors field-by-field. I couldn't
 find any tool that did in-depth reporting on why a schema failed, so I made this
 one.
 
-For example:
+For example, showing valid (✓), invalid or missing (✕), and optional missing
+(?) properties:
 
 ```
 
