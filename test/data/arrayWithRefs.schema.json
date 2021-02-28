@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "name",
+    "address"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "age": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 120
+    },
+    "clothes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ClothesItem"
+      }
+    }
+  },
+  "definitions": {
+    "ClothesItem": {
+      "type": "object",
+      "required": [
+        "color",
+        "size"
+      ],
+      "properties": {
+        "color": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "size": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        }
+      }
+    }
+  }
+}

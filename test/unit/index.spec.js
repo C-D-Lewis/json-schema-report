@@ -2,10 +2,11 @@ const { expect } = require('chai');
 
 const { validateSchema } = require('../../src/index');
 
-const simpleSchema = require('../data/simpleSchema.schema.json');
-const complexSchema = require('../data/complexSchema.schema.json');
-const anyOfSchema = require('../data/anyOfSchema.schema.json');
-const allOfSchema = require('../data/allOfSchema.schema.json');
+const simpleSchema = require('../data/simple.schema.json');
+const complexSchema = require('../data/complex.schema.json');
+const anyOfSchema = require('../data/anyOf.schema.json');
+const allOfSchema = require('../data/allOf.schema.json');
+const arrayWithRefsSchema = require('../data/arrayWithRefs.schema.json');
 
 describe('unit tests', () => {
   it('should validate a simple schema', () => {
@@ -113,7 +114,10 @@ describe('unit tests', () => {
     };
 
     const errors = validateSchema(anyOfSchema, data);
-    expect(errors).to.deep.equal([]);
+    expect(errors).to.deep.equal([
+      // Missing from [anyOf 1/2]
+      '    ? .details.numWheels\n      - required property is missing',
+    ]);
   });
 
   it('should reject invalid data for sub-schema anyOf', () => {
@@ -130,7 +134,11 @@ describe('unit tests', () => {
 
     // TODO: Further resolve for better detail
     expect(errors).to.deep.equal([
-      "  ✕ .details\n    - instance is not any of [subschema 0],[subschema 1]"
+      // Missing from [anyOf 1/2]
+      '    ? .details.color\n      - required property is missing',
+      '    ? .details.numWheels\n      - required property is missing',
+      // Missing from [anyOf 2/2]
+      '    ? .details.color\n      - required property is missing',
     ]);
   });
 
@@ -163,6 +171,36 @@ describe('unit tests', () => {
 
   it('should handle top-level oneOf', () => {
     // TODO: oneOf pets test schema
+  });
+
+  it('should handle an array of items with $ref', () => {
+    const data = {
+      name: 'Person 1',
+      age: 12,
+      clothes: [{
+        color: 'red',
+        size: 'medium',
+      }],
+    };
+
+    const errors = validateSchema(arrayWithRefsSchema, data);
+    expect(errors).to.deep.equal([]);
+  });
+
+  it('should reject invalid data for an array of items with $ref', () => {
+    const data = {
+      name: 'Person 1',
+      age: 12,
+      clothes: [{
+        color: 'red',
+        type: 'cotton',
+      }],
+    };
+
+    const errors = validateSchema(arrayWithRefsSchema, data);
+    expect(errors).to.deep.equal([
+      '  ✕ .clothes\n    - instance[0] requires property \"size\"',
+    ]);
   });
 
   it('should handle a missing definition');

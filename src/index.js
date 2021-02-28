@@ -57,12 +57,18 @@ const resolveRef = (schema, $ref) => {
  * @returns {void}
  */
 const replaceRefs = (propertySchema, schema) => {
-  const { $ref } = propertySchema;
+  const { $ref, items } = propertySchema;
 
   // Handle single $ref object
   if ($ref) return resolveRef(schema, $ref);
 
-  // Handle list of objects
+  // Handle arrays
+  if (items && items.$ref) {
+    propertySchema.items = resolveRef(schema, items.$ref);
+    return propertySchema;
+  }
+
+  // Handle lists of objects
   const updated = { ...propertySchema };
   ['anyOf', 'allOf', 'oneOf']
     .filter(p => propertySchema[p])
@@ -81,38 +87,50 @@ const replaceRefs = (propertySchema, schema) => {
  * Validate a sub-schema.
  * 
  * @param {string} path - Location of this sub-schema.
+ * @param {number} level - Indentation level.
+ * @param {object} schema - Top level schema including definitions.
  * @param {object} subSchema - Schema fragment.
  * @param {object} instance - Instance fragment.
  */
 const validatePropertySchema = (path, level, schema, subSchema, instance) => {
-  const { required, properties, anyOf, allOf, oneOf } = subSchema;
+  const { required, properties, type, anyOf, allOf, oneOf, items } = subSchema;
 
-  if (path === '' && anyOf) {
-    // Ensure at least one subSchema is validated
+  // Array of items
+  if (items && items.$ref) {
+    subSchema.items = resolveRef(schema, subSchema.items.$ref);
+
+    validatePropertySchema(path, level + 1, schema, subSchema.items, instance);
+    return;
+  }
+
+  // anyOf - at least one subSchema is validated
+  if (anyOf) {
     anyOf.forEach((sub, i, arr) => {
-      console.log(`[anyOf ${i + 1}/${arr.length}]`);
+      console.log(`${pad(level + 1)}[anyOf ${i + 1}/${arr.length}]`);
       validatePropertySchema(path, level + 1, schema, sub, instance);
     });
     return;
   }
-  if (path === '' && allOf) {
-    // Ensure all subSchemas are validated
+
+  // allOf - all subSchemas are validated
+  if (allOf) {
     allOf.forEach((sub, i, arr) => {
-      console.log(`[allOf ${i + 1}/${arr.length}]`);
+      console.log(`${pad(level + 1)}[allOf ${i + 1}/${arr.length}]`);
       validatePropertySchema(path, level, schema, sub, instance);
     });
     return;
   }
-  if (path === '' && oneOf) {
-    // Ensure only one subSchema is validated
+
+  // oneOf - only one subSchema is validated
+  if (oneOf) {
     oneOf.forEach((sub, i, arr) => {
-      console.log(`[oneOf ${i + 1}/${arr.length}]`);
+      console.log(`${pad(level + 1)}[oneOf ${i + 1}/${arr.length}]`);
       validatePropertySchema(path, level, schema, sub, instance);
     });
   }
 
   // Basic field
-  if (!properties) {
+  if (!properties && type) {
     const errorMessage = validateFragment(subSchema, instance) || '';
     let output = `${pad(level + 1)}${errorMessage ? '✕': '✓'} ${path}`;
     if (errorMessage) {
@@ -125,31 +143,36 @@ const validatePropertySchema = (path, level, schema, subSchema, instance) => {
   }
 
   // Sub-schemas exist
-  Object
-    .entries(properties)
-    .forEach(([name, propertySchema]) => {
-      const subKeyPath = `${path}.${name}`;
-      // Property is absent, but was required
-      if (required.includes(name) && !instance[name]) {
-        const output = `${pad(level + 1)}? ${subKeyPath}\n${pad(level + 2)}- required property is missing`;
-        errorList.push(output);
-        console.log(output);
-        return;
-      }
+  if (properties) {
+    Object
+      .entries(properties)
+      .forEach(([name, propertySchema]) => {
+        const subKeyPath = `${path}.${name}`;
+        // Property is absent, but was required
+        if (required.includes(name) && !instance[name]) {
+          const output = `${pad(level + 1)}? ${subKeyPath}\n${pad(level + 2)}- required property is missing`;
+          errorList.push(output);
+          console.log(output);
+          return;
+        }
 
-      // Not required, allow absence
-      if (!instance[name]) {
-        console.log(`${pad(level + 1)}  (${subKeyPath})`);
-        return;
-      }
+        // Not required, allow absence
+        if (!instance[name]) {
+          console.log(`${pad(level + 1)}  (${subKeyPath})`);
+          return;
+        }
 
-      // Resolve $refs
-      propertySchema = replaceRefs(propertySchema, schema);
+        // Resolve $refs
+        propertySchema = replaceRefs(propertySchema, schema);
 
-      // Recurse
-      const subInstance = instance[name];
-      validatePropertySchema(subKeyPath, level, schema, propertySchema, subInstance);
-    });
+        // Recurse
+        const subInstance = instance[name];
+        validatePropertySchema(subKeyPath, level, schema, propertySchema, subInstance);
+      });
+    return;
+  }
+
+  throw new Error(`Not sure what to do: ${JSON.stringify(subSchema, null, 2)}`);
 };
 
 /**
