@@ -10,6 +10,10 @@
   "bin": {
     "jsr": "src/cli.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/C-D-Lewis/json-schema-report.git"
+  },
   "keywords": [
     "json",
     "schema",
