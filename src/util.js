@@ -1,5 +1,6 @@
 const { readFileSync } = require('fs');
 const { validate } = require('jsonschema');
+const { SHOW_INFERRED_TYPES } = require('./config');
 
 const multiSchemaTypes = ['anyOf', 'allOf', 'oneOf'];
 
@@ -88,11 +89,11 @@ const replaceRefs = (propertySchema, schema) => {
  */
 const inferType = (level, schema) => {
   if (schema.minItems || schema.maxItems) {
-    console.log(`${pad(level)}! Inferred type 'array'`);
+    if (SHOW_INFERRED_TYPES) console.log(`${pad(level)}! Inferred type 'array'`);
     return 'array';
   }
 
-  console.log(`${pad(level)}! Inferred type 'object'`);
+  if (SHOW_INFERRED_TYPES) console.log(`${pad(level)}! Inferred type 'object'`);
   return 'object';
 };
 

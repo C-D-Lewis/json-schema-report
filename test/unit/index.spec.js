@@ -43,7 +43,7 @@ describe('unit tests', () => {
 
     const errors = validateSchema(simpleSchema, data);
     expect(errors).to.deep.equal([
-      '  ✕ .age - instance must be greater than or equal to 0',
+      '\u001b[31m  ✕ .age\u001b[39m - instance must be greater than or equal to 0',
     ]);
   });
 
@@ -61,7 +61,7 @@ describe('unit tests', () => {
 
     const errors = validateSchema(simpleSchema, data);
     expect(errors).to.deep.equal([
-      '  ✕ .address.state - required property is missing',
+      '\u001b[31m  ✕ .address.state\u001b[39m - required property is missing',
     ]);
   });
 
@@ -118,7 +118,7 @@ describe('unit tests', () => {
     const errors = validateSchema(anyOfSchema, data);
     expect(errors).to.deep.equal([
       // Missing from [anyOf 1/2]
-      '    ✕ .details.numWheels - required property is missing',
+      '\u001b[31m    ✕ .details.numWheels\u001b[39m - required property is missing',
     ]);
   });
 
@@ -136,10 +136,10 @@ describe('unit tests', () => {
 
     expect(errors).to.deep.equal([
       // Missing from [anyOf 1/2]
-      '    ✕ .details.color - required property is missing',
-      '    ✕ .details.numWheels - required property is missing',
+      '\u001b[31m    ✕ .details.color\u001b[39m - required property is missing',
+      '\u001b[31m    ✕ .details.numWheels\u001b[39m - required property is missing',
       // Missing from [anyOf 2/2]
-      '    ✕ .details.color - required property is missing',
+      '\u001b[31m    ✕ .details.color\u001b[39m - required property is missing',
     ]);
   });
 
@@ -166,7 +166,7 @@ describe('unit tests', () => {
 
     const errors = validateSchema(allOfSchema, data);
     expect(errors).to.deep.equal([
-      "    ✕ .color - required property is missing"
+      "\u001b[31m    ✕ .color\u001b[39m - required property is missing"
     ]);
   });
 
@@ -180,7 +180,7 @@ describe('unit tests', () => {
     const errors = validateSchema(oneOfSchema, data);
     expect(errors).to.deep.equal([
       // Missing from [oneOf 2/2]
-      '    ✕ .numSails - required property is missing'
+      '\u001b[31m    ✕ .numSails\u001b[39m - required property is missing'
     ]);
   });
 
@@ -210,7 +210,7 @@ describe('unit tests', () => {
 
     const errors = validateSchema(arrayWithRefsSchema, data);
     expect(errors).to.deep.equal([
-      '  ✕ .clothes[0].size - required property is missing',
+      '\u001b[31m  ✕ .clothes[0].size\u001b[39m - required property is missing',
     ]);
   });
 

@@ -23,6 +23,7 @@
   "author": "Chris Lewis",
   "license": "Apache-2.0",
   "dependencies": {
+    "colors": "^1.4.0",
     "jsonschema": "^1.4.0"
   },
   "devDependencies": {

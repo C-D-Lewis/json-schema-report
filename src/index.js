@@ -1,3 +1,5 @@
+require('colors');
+const { SHOW_ONLY_ERRORS } = require('./config');
 const {
   readJsonFile,
   pad,
@@ -26,7 +28,7 @@ let multiSchemaErrors = [];
  */
 const validateArrayOfSchemas = (path, level, schema, arr, type, instance) => {
   arr.forEach((sub, i, arr) => {
-    console.log(`${pad(level)}[${type} ${i + 1}/${arr.length}]`);
+    console.log(`${pad(level)}[${type} ${i + 1}/${arr.length}]`.grey.bold);
     validatePropertySchema(path, level + 1, schema, sub, instance);
   });
 };
@@ -98,11 +100,16 @@ const validatePropertySchema = (path, level, schema, subSchema, instance) => {
 
   // Basic field
   if (!properties && type) {
+    let output;
+
     const errorMessage = validateFragment(subSchema, instance) || '';
-    let output = `${pad(level)}${errorMessage ? '✕': '✓'} ${path}`;
     if (errorMessage) {
-      output += ` ${errorMessage ? `- ${errorMessage}` : ''}`;
+      output = `${pad(level)}✕ ${path}`.red + ` - ${errorMessage}`;
       errorList.push(output);
+    } else {
+      if (SHOW_ONLY_ERRORS) return;
+
+      output = `${pad(level)}✓ ${path}`.green;
     }
 
     console.log(output);
@@ -117,7 +124,7 @@ const validatePropertySchema = (path, level, schema, subSchema, instance) => {
         const subKeyPath = `${path}.${name}`;
         // Property is absent, but was required
         if (required.includes(name) && !instance[name]) {
-          const output = `${pad(level)}✕ ${subKeyPath} - required property is missing`;
+          const output = `${pad(level)}✕ ${subKeyPath}`.red + ' - required property is missing';
           errorList.push(output);
           console.log(output);
           return;
@@ -125,7 +132,9 @@ const validatePropertySchema = (path, level, schema, subSchema, instance) => {
 
         // Not required, allow absence
         if (!instance[name]) {
-          console.log(`${pad(level)}? ${subKeyPath}`);
+          if (SHOW_ONLY_ERRORS) return;
+
+          console.log(`${pad(level)}? ${subKeyPath} (omitted, not required)`.grey);
           return;
         }
 
