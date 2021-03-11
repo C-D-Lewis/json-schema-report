@@ -50,6 +50,8 @@ Use optional flags to adjust behavior.
 
 * `-i` - Show inferred types.
 * `-e` - Show only fields that explicitly failed, hiding good and neutral ones.
+* `-d` - Show the decision modes taken to reach each property validation.
+* `-o` - Hide optional properties that are not specified, but not invalid.
 
 ## Install
 

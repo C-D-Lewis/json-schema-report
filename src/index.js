@@ -1,5 +1,5 @@
 require('colors');
-const { SHOW_ONLY_ERRORS } = require('./config');
+const { SHOW_ONLY_ERRORS, SHOW_DECISIONS, HIDE_OPTIONAL_VALID } = require('./config');
 const {
   readJsonFile,
   pad,
@@ -48,6 +48,8 @@ const validateArrayOfSchemas = (path, level, schema, arr, type, keyName, instanc
 const validatePropertySchema = (path, level, schema, subSchema, keyName, instance) => {
   // Schema is just a $ref
   if (subSchema.$ref) {
+    if (SHOW_DECISIONS) console.log(`${pad(level)}mode: $ref`.grey);
+
     const resolvedSubSchema = resolveRef(schema, subSchema.$ref);
     const refName = getRefName(subSchema.$ref);
     validatePropertySchema(path, level, schema, resolvedSubSchema, refName, instance);
@@ -64,16 +66,23 @@ const validatePropertySchema = (path, level, schema, subSchema, keyName, instanc
 
   // Array of items with $ref
   if (items && items.$ref) {
+    if (SHOW_DECISIONS) console.log(`${pad(level)}mode: items.$ref`.grey);
+
     const refName = getRefName(subSchema.items.$ref);
     subSchema.items = resolveRef(schema, subSchema.items.$ref);
 
-    validatePropertySchema(path, level, schema, subSchema.items, refName, instance);
+    // Validate each item in array against a given array schema
+    instance.forEach((p, i) => {
+      validatePropertySchema(path, level, schema, subSchema.items, `${keyName}[${i}]`, p);
+    });
     return;
   }
 
   // Array of items with anyOf/allOf/oneOf
   // TODO: Collate errors inside and add a flag to show them
   if (Array.isArray(instance) && items && multiSchemaTypes.some(type => items[type])) {
+    if (SHOW_DECISIONS) console.log(`${pad(level)}mode: items.allOf/anyOf/oneOf`.grey);
+
     multiSchemaTypes
       .filter(p => items[p])
       .forEach((listType) => {
@@ -87,6 +96,8 @@ const validatePropertySchema = (path, level, schema, subSchema, keyName, instanc
 
   // anyOf/allOf/oneOf
   if (multiSchemaTypes.some(type => subSchema[type])) {
+    if (SHOW_DECISIONS) console.log(`${pad(level)}mode: allOf/anyOf/oneOf`.grey);
+
     multiSchemaTypes
       .filter(p => subSchema[p])
       .forEach((listType) => {
@@ -97,6 +108,8 @@ const validatePropertySchema = (path, level, schema, subSchema, keyName, instanc
 
   // Array of basic fields
   if (Array.isArray(instance) && type === 'array') {
+    if (SHOW_DECISIONS) console.log(`${pad(level)}mode: type: array`.grey);
+
     instance.forEach((item, i) => {
       let arraySchema = items;
       // Array type, but no schema for the items - assume
@@ -111,16 +124,21 @@ const validatePropertySchema = (path, level, schema, subSchema, keyName, instanc
 
   // Basic field
   if (!properties && type) {
-    let output;
+    if (SHOW_DECISIONS) console.log(`${pad(level)}mode: basic type`.grey);
 
+    // Array basic type are all validated separately, but the index is in keyName
+    // Add the index of the item if it's not already in the path
+    const suffix = keyName.includes('[') && !path.includes('[') ? keyName.slice(keyName.indexOf('[')) : '';
+
+    let output;
     const errorMessage = validateFragment(subSchema, instance) || '';
     if (errorMessage) {
-      output = `${pad(level)}✕ ${path}`.red + ` - ${errorMessage}`;
+      output = `${pad(level)}✕ ${path}${suffix}`.red + ` - ${errorMessage}`;
       errorList.push(output);
     } else {
       if (SHOW_ONLY_ERRORS) return;
 
-      output = `${pad(level)}✓ ${path}`.green;
+      output = `${pad(level)}✓ ${path}${suffix}`.green;
     }
 
     console.log(output);
@@ -129,6 +147,8 @@ const validatePropertySchema = (path, level, schema, subSchema, keyName, instanc
 
   // Sub-schemas exist
   if (properties) {
+    if (SHOW_DECISIONS) console.log(`${pad(level)}mode: properties`.grey);
+
     Object
       .entries(properties)
       .forEach(([propName, propertySchema]) => {
@@ -143,7 +163,7 @@ const validatePropertySchema = (path, level, schema, subSchema, keyName, instanc
 
         // Not required, allow absence
         if (!instance[propName]) {
-          if (SHOW_ONLY_ERRORS) return;
+          if (SHOW_ONLY_ERRORS || HIDE_OPTIONAL_VALID) return;
 
           console.log(`${pad(level)}? ${subKeyPath} (omitted, not required)`.grey);
           return;
