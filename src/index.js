@@ -4,6 +4,7 @@ const {
   readJsonFile,
   pad,
   resolveRef,
+  getRefName,
   replaceRefs,
   validateFragment,
   multiSchemaTypes,
@@ -14,7 +15,7 @@ const { DEBUG } = process.env;
 const [schemaPath, instancePath] = process.argv.slice(2);
 
 let errorList = [];
-let multiSchemaErrors = [];
+let multiSchemaErrors = [];  // TODO: Collate errors for multi-schemas, but supress if one matches
 
 /**
  * Validate an array of schemas, such as allOf/anyOf/oneOf
@@ -24,12 +25,13 @@ let multiSchemaErrors = [];
  * @param {object} schema - Top level schema including definitions.
  * @param {string} arr - Array of schemas.
  * @param {string} type - Array of schemas list type.
+ * @param {string} keyName - Key name of the property being validated.
  * @param {object} instance - Instance fragment.
  */
-const validateArrayOfSchemas = (path, level, schema, arr, type, instance) => {
+const validateArrayOfSchemas = (path, level, schema, arr, type, keyName, instance) => {
   arr.forEach((sub, i, arr) => {
-    console.log(`${pad(level)}[${type} ${i + 1}/${arr.length}]`.grey.bold);
-    validatePropertySchema(path, level + 1, schema, sub, instance);
+    console.log(`${pad(level)}[${keyName} ${type} ${i + 1} of ${arr.length}]`.grey.bold);
+    validatePropertySchema(path, level + 1, schema, sub, keyName, instance);
   });
 };
 
@@ -40,13 +42,15 @@ const validateArrayOfSchemas = (path, level, schema, arr, type, instance) => {
  * @param {number} level - Indentation level.
  * @param {object} schema - Top level schema including definitions.
  * @param {object} subSchema - Schema fragment.
+ * @param {string} keyName - Key name of the property being validated.
  * @param {object} instance - Instance fragment.
  */
-const validatePropertySchema = (path, level, schema, subSchema, instance) => {
+const validatePropertySchema = (path, level, schema, subSchema, keyName, instance) => {
   // Schema is just a $ref
   if (subSchema.$ref) {
     const resolvedSubSchema = resolveRef(schema, subSchema.$ref);
-    validatePropertySchema(path, level, schema, resolvedSubSchema, instance);
+    const refName = getRefName(subSchema.$ref);
+    validatePropertySchema(path, level, schema, resolvedSubSchema, refName, instance);
     return;
   }
 
@@ -60,9 +64,10 @@ const validatePropertySchema = (path, level, schema, subSchema, instance) => {
 
   // Array of items with $ref
   if (items && items.$ref) {
+    const refName = getRefName(subSchema.items.$ref);
     subSchema.items = resolveRef(schema, subSchema.items.$ref);
 
-    validatePropertySchema(path, level, schema, subSchema.items, instance);
+    validatePropertySchema(path, level, schema, subSchema.items, refName, instance);
     return;
   }
 
@@ -74,7 +79,7 @@ const validatePropertySchema = (path, level, schema, subSchema, instance) => {
       .forEach((listType) => {
         // Validate each item in array against a given array schema
         instance.forEach((p) => {
-          validateArrayOfSchemas(path, level, schema, items[listType], listType, p);
+          validateArrayOfSchemas(path, level, schema, items[listType], listType, keyName, p);
         });
       });
     return;
@@ -85,7 +90,7 @@ const validatePropertySchema = (path, level, schema, subSchema, instance) => {
     multiSchemaTypes
       .filter(p => subSchema[p])
       .forEach((listType) => {
-        validateArrayOfSchemas(path, level, schema, subSchema[listType], listType, instance);
+        validateArrayOfSchemas(path, level, schema, subSchema[listType], listType, keyName, instance);
       });
     return;
   }
@@ -93,7 +98,13 @@ const validatePropertySchema = (path, level, schema, subSchema, instance) => {
   // Array of basic fields
   if (Array.isArray(instance) && type === 'array') {
     instance.forEach((item, i) => {
-      validatePropertySchema(`${path}[${i}]`, level, schema, items, item);
+      let arraySchema = items;
+      // Array type, but no schema for the items - assume
+      if (!items) {
+        console.log(`${pad(level)}! Schema type 'array' does not specify schema for 'items'`);
+        arraySchema = { type: 'any' };
+      }
+      validatePropertySchema(`${path}[${i}]`, level, schema, arraySchema, `${keyName}[${i}]`, item);
     });
     return;
   }
@@ -120,10 +131,10 @@ const validatePropertySchema = (path, level, schema, subSchema, instance) => {
   if (properties) {
     Object
       .entries(properties)
-      .forEach(([name, propertySchema]) => {
-        const subKeyPath = `${path}.${name}`;
+      .forEach(([propName, propertySchema]) => {
+        const subKeyPath = `${path}.${propName}`;
         // Property is absent, but was required
-        if (required.includes(name) && !instance[name]) {
+        if (required.includes(propName) && !instance[propName]) {
           const output = `${pad(level)}✕ ${subKeyPath}`.red + ' - required property is missing';
           errorList.push(output);
           console.log(output);
@@ -131,7 +142,7 @@ const validatePropertySchema = (path, level, schema, subSchema, instance) => {
         }
 
         // Not required, allow absence
-        if (!instance[name]) {
+        if (!instance[propName]) {
           if (SHOW_ONLY_ERRORS) return;
 
           console.log(`${pad(level)}? ${subKeyPath} (omitted, not required)`.grey);
@@ -142,8 +153,8 @@ const validatePropertySchema = (path, level, schema, subSchema, instance) => {
         propertySchema = replaceRefs(propertySchema, schema);
 
         // Recurse
-        const subInstance = instance[name];
-        validatePropertySchema(subKeyPath, level, schema, propertySchema, subInstance);
+        const subInstance = instance[propName];
+        validatePropertySchema(subKeyPath, level, schema, propertySchema, propName, subInstance);
       });
     return;
   }
@@ -167,7 +178,7 @@ const validateSchema = (schema, instance) => {
   schema = replaceRefs(schema, schema);
 
   errorList = [];
-  validatePropertySchema('', 1, schema, schema, instance);
+  validatePropertySchema('', 1, schema, schema, '/', instance);
   return errorList;
 };
 
@@ -183,7 +194,14 @@ const main = () => {
 
   console.log();
   validateSchema(schema, instance);
-  console.log(`\n${errorList.length} errors found.\n`);
+  console.log(`\n${errorList.length} errors found.`);
+
+  const overallError = validateFragment(schema, instance);
+  if (!overallError) {
+    console.log(`\nOverall, the data was valid\n`.green);
+  } else {
+    console.log(`\nOverall, the data was NOT valid\n`.red);
+  }
 };
 
 module.exports = {

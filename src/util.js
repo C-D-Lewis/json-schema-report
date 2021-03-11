@@ -32,6 +32,14 @@ const validateFragment = (schema, instance) => {
 };
 
 /**
+ * Get the name of the definition a $ref refers to.
+ *
+ * @param {string} $ref - Ref to use.
+ * @returns {string} Name of the definition.
+ */
+const getRefName = $ref => $ref.split('/').pop();
+
+/**
  * Resolve a definition from $ref string.
  * 
  * @param {object} schema - Top level schema containing definitions.
@@ -39,7 +47,7 @@ const validateFragment = (schema, instance) => {
  * @returns {object} Resolved definition.
  */
 const resolveRef = (schema, $ref) => {
-  const refName = $ref.split('/').pop();
+  const refName = getRefName($ref);
   const definition = schema.definitions && schema.definitions[refName];
   if (!definition) throw new Error(`Definition ${refName} not found`);
   
@@ -103,6 +111,7 @@ module.exports = {
   pad,
   validateFragment,
   resolveRef,
+  getRefName,
   replaceRefs,
   inferType,
 };

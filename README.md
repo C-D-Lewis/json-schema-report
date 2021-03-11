@@ -5,7 +5,7 @@ find any tool that did in-depth reporting on why a schema failed, so I made this
 one.
 
 For example, showing valid (✓), invalid or missing (✕), and optional missing
-(?) properties:
+(?) properties with colored output to aid in reading:
 
 ```
 
