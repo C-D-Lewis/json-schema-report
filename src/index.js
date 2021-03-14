@@ -19,39 +19,56 @@ let topLevelSchema;
 let multiSchemaErrors = [];  // TODO: Collate errors for multi-schemas, but supress if one matches
 
 /**
+ * Recursive validation context.
+ *
+ * @typedef {object} Context
+ * @property {string} path - Location of this sub-schema.
+ * @property {number} level - Indentation level.
+ * @property {object} subSchema - Schema fragment.
+ * @property {string} keyName - Key name of the property being validated.
+ * @property {object} instance - Instance fragment.
+ */
+
+/**
  * Validate an array of schemas, such as allOf/anyOf/oneOf
  * 
- * @param {string} path - Location of this sub-schema.
- * @param {number} level - Indentation level.
- * @param {string} arr - Array of schemas.
- * @param {string} type - Array of schemas list type.
- * @param {string} keyName - Key name of the property being validated.
- * @param {object} instance - Instance fragment.
+ * @param {Context} ctx - Recursive validation context.
+ * @param {string} type - Array of schemas list type, such as allOf.
+ * @param {Array<object>} schemaArray - Array of schemas.
  */
-const validateArrayOfSchemas = (path, level, arr, type, keyName, instance) => {
-  arr.forEach((sub, i, arr) => {
+const validateArrayOfSchemas = (ctx, type, schemaArray) => {
+  const { level, keyName } = ctx;
+
+  schemaArray.forEach((subSchema, i, arr) => {
     console.log(`${pad(level)}[${keyName} ${type} ${i + 1} of ${arr.length}]`.grey.bold);
-    validatePropertySchema(path, level + 1, sub, keyName, instance);
+
+    validatePropertySchema({
+      ...ctx,
+      level: level + 1,
+      subSchema,
+    });
   });
 };
 
 /**
  * Validate a sub-schema.
  * 
- * @param {string} path - Location of this sub-schema.
- * @param {number} level - Indentation level.
- * @param {object} subSchema - Schema fragment.
- * @param {string} keyName - Key name of the property being validated.
- * @param {object} instance - Instance fragment.
+ * @param {Context} ctx - Recursive validation context.
  */
-const validatePropertySchema = (path, level, subSchema, keyName, instance) => {
+const validatePropertySchema = (ctx) => {
+  const { path, level, subSchema, keyName, instance } = ctx;
+
   // Schema is just a $ref
   if (subSchema.$ref) {
     if (SHOW_DECISIONS) console.log(`${pad(level)}mode: $ref`.grey);
 
     const resolvedSubSchema = resolveRef(topLevelSchema, subSchema.$ref);
     const refName = getRefName(subSchema.$ref);
-    validatePropertySchema(path, level, resolvedSubSchema, refName, instance);
+    validatePropertySchema({
+      ...ctx,
+      subSchema: resolvedSubSchema,
+      keyName: refName,
+    });
     return;
   }
 
@@ -72,22 +89,33 @@ const validatePropertySchema = (path, level, subSchema, keyName, instance) => {
 
     // Validate each item in array against a given array schema
     instance.forEach((p, i) => {
-      validatePropertySchema(path, level, subSchema.items, `${keyName}[${i}]`, p);
+      validatePropertySchema({
+        ...ctx,
+        subSchema: subSchema.items,
+        keyName: `${keyName}[${i}]`,
+        instance: p,
+      });
     });
     return;
   }
 
   // Array of items with anyOf/allOf/oneOf
-  // TODO: Collate errors inside and add a flag to show them
-  if (Array.isArray(instance) && items && multiSchemaTypes.some(type => items[type])) {
+  // TODO: Collate errors inside and add a flag to show them (%?)
+  if (Array.isArray(instance) && items && multiSchemaTypes.some(p => items[p])) {
     if (SHOW_DECISIONS) console.log(`${pad(level)}mode: items.allOf/anyOf/oneOf`.grey);
 
     multiSchemaTypes
       .filter(p => items[p])
       .forEach((listType) => {
-        // Validate each item in array against a given array schema
+        // Validate each item in array against a given array schema, like allOf
         instance.forEach((p) => {
-          validateArrayOfSchemas(path, level, items[listType], listType, keyName, p);
+          validateArrayOfSchemas({
+              ...ctx,
+              instance: p,
+            },
+            listType,
+            items[listType],
+          );
         });
       });
     return;
@@ -100,7 +128,7 @@ const validatePropertySchema = (path, level, subSchema, keyName, instance) => {
     multiSchemaTypes
       .filter(p => subSchema[p])
       .forEach((listType) => {
-        validateArrayOfSchemas(path, level, subSchema[listType], listType, keyName, instance);
+        validateArrayOfSchemas(ctx, listType, subSchema[listType]);
       });
     return;
   }
@@ -116,7 +144,13 @@ const validatePropertySchema = (path, level, subSchema, keyName, instance) => {
         console.log(`${pad(level)}! Schema type 'array' does not specify schema for 'items'`);
         arraySchema = { type: 'any' };
       }
-      validatePropertySchema(`${path}[${i}]`, level, arraySchema, `${keyName}[${i}]`, item);
+      validatePropertySchema({
+        ...ctx,
+        path: `${path}[${i}]`,
+        subSchema: arraySchema,
+        keyName: `${keyName}[${i}]`,
+        instance: item,
+      });
     });
     return;
   }
@@ -173,7 +207,13 @@ const validatePropertySchema = (path, level, subSchema, keyName, instance) => {
 
         // Recurse
         const subInstance = instance[propName];
-        validatePropertySchema(subKeyPath, level, propertySchema, propName, subInstance);
+        validatePropertySchema({
+          ...ctx,
+          path: subKeyPath,
+          subSchema: propertySchema,
+          keyName: propName,
+          instance: subInstance,
+        });
       });
     return;
   }
@@ -200,7 +240,13 @@ const validateSchema = (schema, instance) => {
   schema = replaceRefs(schema, topLevelSchema);
 
   errorList = [];
-  validatePropertySchema('', 1, schema, '/', instance);
+  validatePropertySchema({
+    path: '',
+    level: 1,
+    subSchema: schema,
+    keyName: '/',
+    instance,
+  });
   return errorList;
 };
 
