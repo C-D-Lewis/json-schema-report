@@ -1,6 +1,6 @@
 const { readFileSync } = require('fs');
 const { validate } = require('jsonschema');
-const { SHOW_INFERRED_TYPES } = require('./config');
+const { VERBOSE } = require('./config');
 
 const multiSchemaTypes = ['anyOf', 'allOf', 'oneOf'];
 
@@ -21,13 +21,15 @@ const pad = level => '  '.repeat(level);
 
 /**
  * Validate a schema fragment with an instance fragment.
+ * Definitions can be injected for resolution.
  * 
  * @param {object} schema - Schema fragment.
  * @param {object} instance - Instance fragment.
+ * @param {object} topLevelSchema - Top level schema including definitions.
  * @returns {string} First error stack.
  */
-const validateFragment = (schema, instance) => {
-  const { errors } = validate(instance, schema);
+const validateFragment = (schema, instance, { definitions }) => {
+  const { errors } = validate(instance, { ...schema, definitions });
   return errors.length ? errors[0].stack : undefined;
 };
 
@@ -97,11 +99,11 @@ const replaceRefs = (propertySchema, schema) => {
  */
 const inferType = (level, schema) => {
   if (schema.minItems || schema.maxItems) {
-    if (SHOW_INFERRED_TYPES) console.log(`${pad(level)}! Inferred type 'array'`);
+    if (VERBOSE) console.log(`${pad(level)}! Inferred type 'array'`);
     return 'array';
   }
 
-  if (SHOW_INFERRED_TYPES) console.log(`${pad(level)}! Inferred type 'object'`);
+  if (VERBOSE) console.log(`${pad(level)}! Inferred type 'object'`);
   return 'object';
 };
 

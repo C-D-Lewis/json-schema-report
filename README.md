@@ -46,12 +46,13 @@ retrospect.
 
 ## Options
 
-Use optional flags to adjust behavior.
+In normal operation, a valid sub-schema will stop from showing considered
+alternatives. Use optional flags to adjust this behavior.
 
-* `-i` - Show inferred types.
-* `-e` - Show only fields that explicitly failed, hiding good and neutral ones.
-* `-d` - Show the decision modes taken to reach each property validation.
+* `-v` - Show inferred types and partially or invalid sub-schemas/alternatives.
 * `-o` - Hide optional properties that are not specified, but not invalid.
+
+You can also `export DEBUG=true` to see a lot more debugging info.
 
 ## Install
 

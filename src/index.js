@@ -1,5 +1,5 @@
 require('colors');
-const { SHOW_ONLY_ERRORS, SHOW_DECISIONS, HIDE_OPTIONAL_VALID } = require('./config');
+const { HIDE_OPTIONAL_VALID, VERBOSE } = require('./config');
 const {
   readJsonFile,
   pad,
@@ -16,7 +16,6 @@ const [schemaPath, instancePath] = process.argv.slice(2);
 
 let allErrorsList = [];
 let topLevelSchema;
-let multiSchemaErrors = [];  // TODO: Collate errors for multi-schemas, but supress if one matches
 
 /**
  * Recursive validation context.
@@ -27,6 +26,7 @@ let multiSchemaErrors = [];  // TODO: Collate errors for multi-schemas, but supr
  * @property {object} subSchema - Schema fragment.
  * @property {string} keyName - Key name of the property being validated.
  * @property {object} instance - Instance fragment.
+ * @property {boolean} branchIsValid - True if the current branch is overall valid.
  */
 
 /**
@@ -37,10 +37,20 @@ let multiSchemaErrors = [];  // TODO: Collate errors for multi-schemas, but supr
  * @param {Array<object>} schemaArray - Array of schemas.
  */
 const validateArrayOfSchemas = (ctx, type, schemaArray) => {
-  const { level, keyName } = ctx;
+  const { level, keyName, branchIsValid, instance } = ctx;
 
+  ctx.arraySchemaValid = false;
   schemaArray.forEach((subSchema, i, arr) => {
-    console.log(`${pad(level)}[${keyName} ${type} ${i + 1} of ${arr.length}]`.grey.bold);
+    // Array of schemas has already been validated
+    if (ctx.arraySchemaValid) return;
+
+    const color = branchIsValid ? 'green' : 'red';
+    console.log(`${pad(level)}[`.grey + keyName[color] +` ${type} ${i + 1} of ${arr.length}]`.grey);
+
+    ctx.arraySchemaValid = !validateFragment(subSchema, instance, topLevelSchema);
+
+    // If this branch is valid and we're not in verbose mode, don't go deeper
+    if (ctx.branchIsValid && !VERBOSE) return;
 
     validatePropertySchema({
       ...ctx,
@@ -75,7 +85,7 @@ const validateObjectProperties = (ctx, properties) => {
 
       // Not required, allow absence
       if (!instance[propName]) {
-        if (SHOW_ONLY_ERRORS || HIDE_OPTIONAL_VALID) return;
+        if (HIDE_OPTIONAL_VALID) return;
 
         console.log(`${pad(level)}? ${subKeyPath} (omitted, not required)`.grey);
         return;
@@ -109,13 +119,13 @@ const validateBasicProperty = (ctx) => {
   const suffix = keyName.includes('[') && !path.includes('[') ? keyName.slice(keyName.indexOf('[')) : '';
 
   let output;
-  const errorMessage = validateFragment(subSchema, instance) || '';
+  const errorMessage = validateFragment(subSchema, instance, topLevelSchema) || '';
   if (errorMessage) {
     output = `${pad(level)}✕ ${path}${suffix}`.red + ` - ${errorMessage}`;
     allErrorsList.push(output);
-  } else {
-    if (SHOW_ONLY_ERRORS) return;
 
+    ctx.branchIsValid = false;
+  } else {
     output = `${pad(level)}✓ ${path}${suffix}`.green;
   }
 
@@ -151,15 +161,17 @@ const validateArrayOfBasicProperties = (ctx, items) => {
 
 /**
  * Validate a sub-schema.
- * 
+ *
  * @param {Context} ctx
  */
 const validatePropertySchema = (ctx) => {
   const { level, subSchema, keyName, instance } = ctx;
 
+  ctx.branchIsValid = !validateFragment(subSchema, instance, topLevelSchema);
+
   // Schema is just a $ref
   if (subSchema.$ref) {
-    if (SHOW_DECISIONS) console.log(`${pad(level)}mode: $ref`.grey);
+    if (DEBUG) console.log(`${pad(level)}mode: $ref`.grey);
 
     const resolvedSubSchema = resolveRef(topLevelSchema, subSchema.$ref);
     const refName = getRefName(subSchema.$ref);
@@ -181,7 +193,7 @@ const validatePropertySchema = (ctx) => {
 
   // Array of items with $ref
   if (items && items.$ref) {
-    if (SHOW_DECISIONS) console.log(`${pad(level)}mode: items.$ref`.grey);
+    if (DEBUG) console.log(`${pad(level)}mode: items.$ref`.grey);
 
     // Resolve $ref for the 'items'
     subSchema.items = resolveRef(topLevelSchema, subSchema.items.$ref);
@@ -200,7 +212,7 @@ const validatePropertySchema = (ctx) => {
 
   // Array of items with anyOf/allOf/oneOf as the 'items' schema
   if (Array.isArray(instance) && items && multiSchemaTypes.some(p => items[p])) {
-    if (SHOW_DECISIONS) console.log(`${pad(level)}mode: items.allOf/anyOf/oneOf`.grey);
+    if (DEBUG) console.log(`${pad(level)}mode: items.allOf/anyOf/oneOf`.grey);
 
     multiSchemaTypes
       .filter(p => items[p])
@@ -213,7 +225,7 @@ const validatePropertySchema = (ctx) => {
 
   // Current subSchema is anyOf/allOf/oneOf directly
   if (multiSchemaTypes.some(type => subSchema[type])) {
-    if (SHOW_DECISIONS) console.log(`${pad(level)}mode: allOf/anyOf/oneOf`.grey);
+    if (DEBUG) console.log(`${pad(level)}mode: allOf/anyOf/oneOf`.grey);
 
     multiSchemaTypes
       .filter(p => subSchema[p])
@@ -225,7 +237,7 @@ const validatePropertySchema = (ctx) => {
 
   // Array of basic fields
   if (Array.isArray(instance) && type === 'array') {
-    if (SHOW_DECISIONS) console.log(`${pad(level)}mode: type: array`.grey);
+    if (DEBUG) console.log(`${pad(level)}mode: type: array`.grey);
 
     validateArrayOfBasicProperties(ctx, items);
     return;
@@ -233,7 +245,7 @@ const validatePropertySchema = (ctx) => {
 
   // Basic field
   if (!properties && type) {
-    if (SHOW_DECISIONS) console.log(`${pad(level)}mode: basic type`.grey);
+    if (DEBUG) console.log(`${pad(level)}mode: basic type`.grey);
 
     validateBasicProperty(ctx);
     return;
@@ -241,7 +253,7 @@ const validatePropertySchema = (ctx) => {
 
   // Sub-schemas exist
   if (properties) {
-    if (SHOW_DECISIONS) console.log(`${pad(level)}mode: properties`.grey);
+    if (DEBUG) console.log(`${pad(level)}mode: properties`.grey);
 
     validateObjectProperties(ctx, properties);
     return;
@@ -269,13 +281,15 @@ const validateSchema = (schema, instance) => {
   schema = replaceRefs(schema, topLevelSchema);
 
   allErrorsList = [];
-  validatePropertySchema({
+  const startingCtx = {
     path: '',
     level: 1,
     subSchema: schema,
     keyName: '/',
     instance,
-  });
+    branchIsValid: true,
+  };
+  validatePropertySchema(startingCtx);
   return allErrorsList;
 };
 
@@ -283,8 +297,10 @@ const validateSchema = (schema, instance) => {
  * The main function.
  */
 const main = () => {
-  if (!schemaPath) throw new Error('Schema path not specified');
-  if (!instancePath) throw new Error('Instance path not specified');
+  if (!schemaPath || !instancePath) {
+    console.log('\nUsage:\n  jsr $schemaFilePath $dataFilePath [-v|-o]\n');
+    return;
+  }
 
   const schema = readJsonFile(schemaPath);
   const instance = readJsonFile(instancePath);
@@ -293,7 +309,7 @@ const main = () => {
   validateSchema(schema, instance);
   console.log(`\n${allErrorsList.length} errors found.`);
 
-  const overallError = validateFragment(schema, instance);
+  const overallError = validateFragment(schema, instance, schema);
   if (!overallError) {
     console.log(`\nOverall, the data was valid\n`.green);
   } else {
