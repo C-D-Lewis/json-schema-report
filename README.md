@@ -23,13 +23,12 @@ For example, showing valid (✓), invalid or missing (✕), and optional missing
 
 Where a schema uses `allOf`, `anyOf`, or `oneOf`, all the possible alternatives
 are shown, so you can see how much each one matched against the other
-candidates. This can mean that data that does not match any of the candidates
-will show errors for _all_ of them.
+candidates.
+
+> This can mean that data that does not match any of the candidates will show
+> errors for _all_ of them.
 
 The example below shows where a `oneOf` matched only the second candidate.
-
-TODO: Option to hide alternative candidates when one fully matches in
-retrospect.
 
 ```
   [oneOf 1/2]

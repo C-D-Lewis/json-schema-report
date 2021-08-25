@@ -4,7 +4,7 @@
   "description": "Visual tool to debug JSON schema validation errors",
   "main": "src/index.js",
   "scripts": {
-    "test": "nyc mocha test/unit/*",
+    "test": "nyc --reporter=lcov --reporter=text-summary mocha test/unit/*",
     "start": "node src/index.js"
   },
   "bin": {

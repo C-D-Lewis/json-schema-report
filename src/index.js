@@ -3,7 +3,7 @@ const { HIDE_OPTIONAL_VALID, VERBOSE } = require('./config');
 const {
   readJsonFile,
   pad,
-  resolveRef,
+  resolveRefDefinition,
   getRefName,
   replaceRefs,
   validateFragment,
@@ -15,7 +15,7 @@ const { DEBUG } = process.env;
 const [schemaPath, instancePath] = process.argv.slice(2);
 
 let allErrorsList = [];
-let topLevelSchema;
+let inputSchema;
 
 /**
  * Recursive validation context.
@@ -33,25 +33,51 @@ let topLevelSchema;
  * Validate an array of schemas, such as allOf/anyOf/oneOf
  * 
  * @param {Context} ctx
- * @param {string} type - Array of schemas list type, such as allOf.
+ * @param {string} type - Array of schemas list type, such as 'allOf'.
  * @param {Array<object>} schemaArray - Array of schemas.
  */
 const validateArrayOfSchemas = (ctx, type, schemaArray) => {
   const { level, keyName, branchIsValid, instance } = ctx;
 
   ctx.arraySchemaValid = false;
+  let numValidSchemas = 0;
+
   schemaArray.forEach((subSchema, i, arr) => {
-    // Array of schemas has already been validated
+    // One of the array of candidate schemas has already been validated
     if (ctx.arraySchemaValid) return;
 
     const color = branchIsValid ? 'green' : 'red';
     console.log(`${pad(level)}[`.grey + keyName[color] +` ${type} ${i + 1} of ${arr.length}]`.grey);
 
-    ctx.arraySchemaValid = !validateFragment(subSchema, instance, topLevelSchema);
+    // If this schema validates, we found a valid candidate
+    const errorMessage = validateFragment(subSchema, instance, inputSchema);
+    if (!errorMessage) {
+      numValidSchemas += 1;
+    }
 
-    // If this branch is valid and we're not in verbose mode, don't go deeper
+    // Did we satisfy the multiSchema type?
+    let matched = false;
+    if (type === 'allOf') {
+      matched = numValidSchemas === schemaArray.length;
+    }
+    if (type === 'anyOf') {
+      matched = numValidSchemas > 0;
+    }
+    if (type === 'oneOF') {
+      matched = numValidSchemas === 1;
+    }
+
+    // Show overall result
+    if (matched) {
+      console.log(`${pad(level + 1)}✓ matching`.green);
+    } else {
+      console.log(`${pad(level + 1)}? not matching`.grey);
+    }
+
+    // If this branch is valid and we're not in verbose mode, don't show other candidate errors
     if (ctx.branchIsValid && !VERBOSE) return;
 
+    // Treat as invalid, dive deeper
     validatePropertySchema({
       ...ctx,
       level: level + 1,
@@ -72,12 +98,12 @@ const validateObjectProperties = (ctx, properties) => {
 
   Object
     .entries(properties)
-    .forEach(([propName, propertySchema]) => {
-      const subKeyPath = `${path}.${propName}`;
+    .forEach(([propName, propSchema]) => {
+      const propPath = `${path}.${propName}`;
 
       // Property is required, but was absent
       if (required.includes(propName) && !instance[propName]) {
-        const output = `${pad(level)}✕ ${subKeyPath}`.red + ' - required property is missing';
+        const output = `${pad(level)}✕ ${propPath}`.red + ' - required property is missing';
         allErrorsList.push(output);
         console.log(output);
         return;
@@ -85,21 +111,22 @@ const validateObjectProperties = (ctx, properties) => {
 
       // Not required, allow absence
       if (!instance[propName]) {
+        // Unless option set to hide these hints
         if (HIDE_OPTIONAL_VALID) return;
 
-        console.log(`${pad(level)}? ${subKeyPath} (omitted, not required)`.grey);
+        console.log(`${pad(level)}? ${propPath} (omitted, not required)`.grey);
         return;
       }
 
       // Resolve $refs
-      propertySchema = replaceRefs(propertySchema, topLevelSchema);
+      propSchema = replaceRefs(propSchema, inputSchema);
 
-      // Recurse
+      // Recurse into required property and it's schema
       const subInstance = instance[propName];
       validatePropertySchema({
         ...ctx,
-        path: subKeyPath,
-        subSchema: propertySchema,
+        path: propPath,
+        subSchema: propSchema,
         keyName: propName,
         instance: subInstance,
       });
@@ -119,7 +146,7 @@ const validateBasicProperty = (ctx) => {
   const suffix = keyName.includes('[') && !path.includes('[') ? keyName.slice(keyName.indexOf('[')) : '';
 
   let output;
-  const errorMessage = validateFragment(subSchema, instance, topLevelSchema) || '';
+  const errorMessage = validateFragment(subSchema, instance, inputSchema) || '';
   if (errorMessage) {
     output = `${pad(level)}✕ ${path}${suffix}`.red + ` - ${errorMessage}`;
     allErrorsList.push(output);
@@ -149,6 +176,7 @@ const validateArrayOfBasicProperties = (ctx, items) => {
       console.log(`${pad(level)}! Schema type 'array' does not specify schema for 'items'`);
       arraySchema = { type: 'any' };
     }
+
     validatePropertySchema({
       ...ctx,
       path: `${path}[${i}]`,
@@ -167,13 +195,13 @@ const validateArrayOfBasicProperties = (ctx, items) => {
 const validatePropertySchema = (ctx) => {
   const { level, subSchema, keyName, instance } = ctx;
 
-  ctx.branchIsValid = !validateFragment(subSchema, instance, topLevelSchema);
+  ctx.branchIsValid = !validateFragment(subSchema, instance, inputSchema);
 
   // Schema is just a $ref
   if (subSchema.$ref) {
     if (DEBUG) console.log(`${pad(level)}mode: $ref`.grey);
 
-    const resolvedSubSchema = resolveRef(topLevelSchema, subSchema.$ref);
+    const resolvedSubSchema = resolveRefDefinition(inputSchema, subSchema.$ref);
     const refName = getRefName(subSchema.$ref);
     validatePropertySchema({
       ...ctx,
@@ -188,15 +216,16 @@ const validatePropertySchema = (ctx) => {
     subSchema.type = inferType(level, subSchema);
   }
 
-  const { items } = subSchema;
   if (DEBUG) console.log(JSON.stringify({ subSchema, instance }, null, 2));
+
+  const { items } = subSchema;
 
   // Array of items with $ref
   if (items && items.$ref) {
     if (DEBUG) console.log(`${pad(level)}mode: items.$ref`.grey);
 
     // Resolve $ref for the 'items'
-    subSchema.items = resolveRef(topLevelSchema, subSchema.items.$ref);
+    subSchema.items = resolveRefDefinition(inputSchema, subSchema.items.$ref);
 
     // Validate each item in array against a given array schema
     instance.forEach((p, i) => {
@@ -211,25 +240,33 @@ const validatePropertySchema = (ctx) => {
   }
 
   // Array of items with anyOf/allOf/oneOf as the 'items' schema
-  if (Array.isArray(instance) && items && multiSchemaTypes.some(p => items[p])) {
+  if (Array.isArray(instance) && items && multiSchemaTypes.some(p => !!items[p])) {
     if (DEBUG) console.log(`${pad(level)}mode: items.allOf/anyOf/oneOf`.grey);
 
     multiSchemaTypes
       .filter(p => items[p])
-      .forEach((type) => {
+      .forEach((multiSchemaType) => {
         // Validate each item in array against a given array schema, like allOf
-        instance.forEach(arrayItem => validateArrayOfSchemas({ ...ctx, instance: arrayItem }, type, items[type]));
+        instance.forEach(
+          arrayItem => validateArrayOfSchemas(
+            { ...ctx, instance: arrayItem },
+            multiSchemaType,
+            items[multiSchemaType],
+          )
+        );
       });
     return;
   }
 
   // Current subSchema is anyOf/allOf/oneOf directly
-  if (multiSchemaTypes.some(type => subSchema[type])) {
+  if (multiSchemaTypes.some(p => !!subSchema[p])) {
     if (DEBUG) console.log(`${pad(level)}mode: allOf/anyOf/oneOf`.grey);
 
     multiSchemaTypes
       .filter(p => subSchema[p])
-      .forEach(type => validateArrayOfSchemas(ctx, type, subSchema[type]));
+      .forEach(
+        multiSchemaType => validateArrayOfSchemas(ctx, multiSchemaType, subSchema[multiSchemaType])
+      );
     return;
   }
 
@@ -251,7 +288,7 @@ const validatePropertySchema = (ctx) => {
     return;
   }
 
-  // Sub-schemas exist
+  // Child 'properties' in subSchema
   if (properties) {
     if (DEBUG) console.log(`${pad(level)}mode: properties`.grey);
 
@@ -259,7 +296,7 @@ const validatePropertySchema = (ctx) => {
     return;
   }
 
-  throw new Error(`Unhandled schema:\n${JSON.stringify({ subSchema, instance }, null, 2)}`);
+  throw new Error(`Unhandled schema shape:\n${JSON.stringify({ subSchema, instance }, null, 2)}`);
 };
 
 /**
@@ -275,10 +312,10 @@ const validateSchema = (schema, instance) => {
   }
 
   // For both cli and tests, use the schema passed here
-  topLevelSchema = { ...schema };
+  inputSchema = { ...schema };
 
   // Handle top-level allOf/anyOf/oneOf
-  schema = replaceRefs(schema, topLevelSchema);
+  schema = replaceRefs(schema, inputSchema);
 
   allErrorsList = [];
   const startingCtx = {

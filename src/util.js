@@ -48,7 +48,7 @@ const getRefName = $ref => $ref.split('/').pop();
  * @param {string} $ref - Ref string.
  * @returns {object} Resolved definition.
  */
-const resolveRef = (schema, $ref) => {
+const resolveDefinition = (schema, $ref) => {
   const refName = getRefName($ref);
   const definition = schema.definitions && schema.definitions[refName];
   if (!definition) throw new Error(`Definition ${refName} not found`);
@@ -61,23 +61,23 @@ const resolveRef = (schema, $ref) => {
  * referred to definitions.
  * 
  * @param {object} propertySchema - Single property schema.
- * @param {*} schema - Top-level schema containing definitions.
+ * @param {object} schema - Top-level schema containing definitions.
  * @returns {void}
  */
 const replaceRefs = (propertySchema, schema) => {
   const { $ref, items } = propertySchema;
 
   // Handle single $ref object
-  if ($ref) return resolveRef(schema, $ref);
+  if ($ref) return resolveDefinition(schema, $ref);
 
-  // Handle arrays
+  // Handle arrays where items are $ref
   if (items && items.$ref) {
-    propertySchema.items = resolveRef(schema, items.$ref);
+    propertySchema.items = resolveDefinition(schema, items.$ref);
     return propertySchema;
   }
 
-  // Handle lists of objects
-  const updated = { ...propertySchema };
+  // Handle lists of objects within anyOf, allOf, etc.
+  const updatedPropSchema = { ...propertySchema };
   multiSchemaTypes
     .filter(p => propertySchema[p])
     .forEach((listType) => {
@@ -85,10 +85,10 @@ const replaceRefs = (propertySchema, schema) => {
         if (!item.$ref) return;
 
         // Replace list item with definition
-        updated[listType][i] = resolveRef(schema, item.$ref);
+        updatedPropSchema[listType][i] = resolveDefinition(schema, item.$ref);
       });
     });
-  return updated;
+  return updatedPropSchema;
 };
 
 /**
@@ -112,7 +112,7 @@ module.exports = {
   readJsonFile,
   pad,
   validateFragment,
-  resolveRef,
+  resolveDefinition,
   getRefName,
   replaceRefs,
   inferType,
