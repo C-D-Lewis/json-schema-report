@@ -154,7 +154,7 @@ describe('unit tests', () => {
     expect(errors).to.deep.equal([]);
   });
 
-  it.only('should reject invalid data for top-level allOf', () => {
+  it('should reject invalid data for top-level allOf', () => {
     const data = {
       name: 'King of the Seas',
       age: 12,
@@ -176,10 +176,7 @@ describe('unit tests', () => {
     };
 
     const errors = validateSchema(oneOfSchema, data);
-    expect(errors).to.deep.equal([
-      // Missing from [oneOf 2/2]
-      '\u001b[31m    ✕ .numSails\u001b[39m - required property is missing'
-    ]);
+    expect(errors).to.deep.equal([]);
   });
 
   it('should handle an array of items with $ref', () => {

@@ -3,7 +3,7 @@ const { HIDE_OPTIONAL_VALID, VERBOSE } = require('./config');
 const {
   readJsonFile,
   pad,
-  resolveRefDefinition,
+  resolveDefinition,
   getRefName,
   replaceRefs,
   validateFragment,
@@ -63,15 +63,17 @@ const validateArrayOfSchemas = (ctx, type, schemaArray) => {
     if (type === 'anyOf') {
       matched = numValidSchemas > 0;
     }
-    if (type === 'oneOF') {
+    if (type === 'oneOf') {
       matched = numValidSchemas === 1;
     }
 
     // Show overall result
     if (matched) {
-      console.log(`${pad(level + 1)}✓ matching`.green);
+      console.log(`${pad(level)}✓ matching`.grey);
+      
+      ctx.arraySchemaValid = true;
     } else {
-      console.log(`${pad(level + 1)}? not matching`.grey);
+      console.log(`${pad(level)}? not matching`.grey);
     }
 
     // If this branch is valid and we're not in verbose mode, don't show other candidate errors
@@ -201,7 +203,7 @@ const validatePropertySchema = (ctx) => {
   if (subSchema.$ref) {
     if (DEBUG) console.log(`${pad(level)}mode: $ref`.grey);
 
-    const resolvedSubSchema = resolveRefDefinition(inputSchema, subSchema.$ref);
+    const resolvedSubSchema = resolveDefinition(inputSchema, subSchema.$ref);
     const refName = getRefName(subSchema.$ref);
     validatePropertySchema({
       ...ctx,
@@ -225,7 +227,7 @@ const validatePropertySchema = (ctx) => {
     if (DEBUG) console.log(`${pad(level)}mode: items.$ref`.grey);
 
     // Resolve $ref for the 'items'
-    subSchema.items = resolveRefDefinition(inputSchema, subSchema.items.$ref);
+    subSchema.items = resolveDefinition(inputSchema, subSchema.items.$ref);
 
     // Validate each item in array against a given array schema
     instance.forEach((p, i) => {

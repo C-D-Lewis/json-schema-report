@@ -19,7 +19,7 @@
         "length": {
           "type": "number"
         },
-        "numMasts": {
+        "numDoors": {
           "type": "number"
         },
         "topSpeed": {

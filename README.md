@@ -32,15 +32,17 @@ The example below shows where a `oneOf` matched only the second candidate.
 
 ```
   [oneOf 1/2]
-    ✓ .color
-    ✓ .length
-    ? .numMasts (omitted, not required)
-    ✓ .topSpeed
-  [oneOf 2/2]
+  ? not matching
     ✓ .color
     ✓ .length
     ? .numMasts (omitted, not required)
     ✕ .numSails - required property is missing
+  [oneOf 2/2]
+  ✓ matching
+    ✓ .color
+    ✓ .length
+    ? .numMasts (omitted, not required)
+    ✓ .topSpeed
 ```
 
 ## Options
