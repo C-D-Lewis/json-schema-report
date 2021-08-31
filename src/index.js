@@ -11,6 +11,7 @@ const {
   inferType,
 } = require('./util');
 
+const { version } = require('../package.json');
 const { DEBUG } = process.env;
 const [schemaPath, instancePath] = process.argv.slice(2);
 
@@ -337,7 +338,16 @@ const validateSchema = (schema, instance) => {
  */
 const main = () => {
   if (!schemaPath || !instancePath) {
-    console.log('\nUsage:\n  jsr $schemaFilePath $dataFilePath [-v|-o]\n');
+    console.log(`json-schema-report v${version}
+
+  Usage:
+    jsr $schemaPath $dataPath [options]
+
+  Options:
+    -h: Show this help text
+    -v: Verbose mode, showing more details
+    -o: Hide optional properties that were absent
+`);
     return;
   }
 
