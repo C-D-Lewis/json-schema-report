@@ -1,6 +1,6 @@
 {
   "name": "json-schema-report",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Visual tool to debug JSON schema validation errors",
   "main": "src/index.js",
   "scripts": {
