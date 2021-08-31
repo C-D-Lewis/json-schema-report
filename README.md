@@ -4,6 +4,9 @@ Visual tool to debug JSON schema validation errors field-by-field. I couldn't
 find any tool that did in-depth reporting on why a schema failed, so I made this
 one.
 
+> JSON Schema versions are supported as per the underlying validator,
+> [`jsonschema`](https://github.com/tdegrunt/jsonschema).
+
 For example, showing valid (✓), invalid or missing (✕), and optional missing
 (?) properties with colored output to aid in reading:
 
