@@ -3,6 +3,7 @@ const { HIDE_OPTIONAL_VALID, VERBOSE } = require('./config');
 const {
   readJsonFile,
   pad,
+  debugLog,
   resolveDefinition,
   getRefName,
   replaceRefs,
@@ -12,7 +13,6 @@ const {
 } = require('./util');
 
 const { version } = require('../package.json');
-const { DEBUG } = process.env;
 const [schemaPath, instancePath] = process.argv.slice(2);
 
 let allErrorsList = [];
@@ -202,7 +202,7 @@ const validatePropertySchema = (ctx) => {
 
   // Schema is just a $ref
   if (subSchema.$ref) {
-    if (DEBUG) console.log(`${pad(level)}mode: $ref`.grey);
+    debugLog(`type: $ref`);
 
     const resolvedSubSchema = resolveDefinition(inputSchema, subSchema.$ref);
     const refName = getRefName(subSchema.$ref);
@@ -219,13 +219,14 @@ const validatePropertySchema = (ctx) => {
     subSchema.type = inferType(level, subSchema);
   }
 
-  if (DEBUG) console.log(JSON.stringify({ subSchema, instance }, null, 2));
+  debugLog(`schema: ${JSON.stringify(subSchema, null, 2)}`);
+  debugLog(`instance: ${JSON.stringify(instance, null, 2)}`);
 
   const { items } = subSchema;
 
   // Array of items with $ref
   if (items && items.$ref) {
-    if (DEBUG) console.log(`${pad(level)}mode: items.$ref`.grey);
+    debugLog(`type: items.$ref`);
 
     // Resolve $ref for the 'items'
     subSchema.items = resolveDefinition(inputSchema, subSchema.items.$ref);
@@ -244,7 +245,7 @@ const validatePropertySchema = (ctx) => {
 
   // Array of items with anyOf/allOf/oneOf as the 'items' schema
   if (Array.isArray(instance) && items && multiSchemaTypes.some(p => !!items[p])) {
-    if (DEBUG) console.log(`${pad(level)}mode: items.allOf/anyOf/oneOf`.grey);
+    debugLog(`type: items.allOf/anyOf/oneOf`);
 
     multiSchemaTypes
       .filter(p => items[p])
@@ -263,7 +264,7 @@ const validatePropertySchema = (ctx) => {
 
   // Current subSchema is anyOf/allOf/oneOf directly
   if (multiSchemaTypes.some(p => !!subSchema[p])) {
-    if (DEBUG) console.log(`${pad(level)}mode: allOf/anyOf/oneOf`.grey);
+    debugLog(`type: allOf/anyOf/oneOf`);
 
     multiSchemaTypes
       .filter(p => subSchema[p])
@@ -277,7 +278,7 @@ const validatePropertySchema = (ctx) => {
 
   // Array of basic fields
   if (Array.isArray(instance) && type === 'array') {
-    if (DEBUG) console.log(`${pad(level)}mode: type: array`.grey);
+    debugLog(`type: type: array`);
 
     validateArrayOfBasicProperties(ctx, items);
     return;
@@ -285,7 +286,7 @@ const validatePropertySchema = (ctx) => {
 
   // Basic field
   if (!properties && type) {
-    if (DEBUG) console.log(`${pad(level)}mode: basic type`.grey);
+    debugLog(`type: basic type`);
 
     validateBasicProperty(ctx);
     return;
@@ -293,7 +294,7 @@ const validatePropertySchema = (ctx) => {
 
   // Child 'properties' in subSchema
   if (properties) {
-    if (DEBUG) console.log(`${pad(level)}mode: properties`.grey);
+    debugLog(`type: properties`);
 
     validateObjectProperties(ctx, properties);
     return;

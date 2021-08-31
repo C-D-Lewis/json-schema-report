@@ -2,6 +2,9 @@ const { readFileSync } = require('fs');
 const { validate } = require('jsonschema');
 const { VERBOSE } = require('./config');
 
+const { DEBUG } = process.env;
+
+/** Multi-schema types */
 const multiSchemaTypes = ['anyOf', 'allOf', 'oneOf'];
 
 /**
@@ -18,6 +21,17 @@ const readJsonFile = path => JSON.parse(readFileSync(path, 'utf8'));
  * @param {number} level - Number of levels indented.
  */
 const pad = level => '  '.repeat(level);
+
+/**
+ * Log debug info.
+ *
+ * @param {string} msg - Message to log.
+ */
+const debugLog = msg => {
+  if (DEBUG !== 'true') return;
+
+  console.log(`${msg}`.grey);
+};
 
 /**
  * Validate a schema fragment with an instance fragment.
@@ -111,6 +125,7 @@ module.exports = {
   multiSchemaTypes,
   readJsonFile,
   pad,
+  debugLog,
   validateFragment,
   resolveDefinition,
   getRefName,
